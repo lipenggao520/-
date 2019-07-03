@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <style type="text/css">
+        .grid {
+            margin: auto;
+            width: 530px;
+            text-align: center;
+        }
+        
+        .grid table {
+            border-top: 1px solid #C2D89A;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .grid th,
+        td {
+            padding: 10;
+            border: 1px dashed #F3DCAB;
+            height: 35px;
+            line-height: 35px;
+        }
+        
+        .grid th {
+            background-color: #F3DCAB;
+        }
+        
+        .grid .book {
+            padding-bottom: 10px;
+            padding-top: 5px;
+            background-color: #F3DCAB;
+        }
+        
+        .grid .table {
+            height: 30px;
+            background-color: #F3DCAB;
+        }
+        
+        #app .grid .red {
+            color: red;
+        }
+        
+        #app .grid .green {
+            color: greenyellow;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div class="grid">
+            <div>
+                <h1>图书管理</h1>
+                <div class="book">
+                    <div>
+                        <label for="id">
+                      编号：
+                    </label>
+                        <input type="text" id="id" v-model='id' :disabled='true' v-focus>
+                        <label for="name">
+                      名称：
+                    </label>
+                        <input type="text" id="name" v-model='name' @keyup.enter='add'>
+                        <button @click='add' :disabled='nameFlag'>提交</button>
+                    </div>
+                </div>
+            </div>
+            <div class="table">
+                <span>图书数量 : </span>
+                <span>{{msg}}</span>
+                <span :class="nameFlag ? 'red' : 'green' ">{{text}}</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>编号</th>
+                        <th>名称</th>
+                        <th>时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr :key='item.id' v-for='(item, index) in books'>
+                        <td>{{item.id}}</td>
+                        <td>{{item.name}}</td>
+                        <td>{{item.date | format('yyyy-MM-dd hh:mm:ss')}}</td>
+                        <td>
+                            <a href="" @click.prevent="update(item.id)">修改</a>
+                            <span>|</span>
+                            <a href="" @click.prevent="del(item.id)">删除</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script type="text/javascript" src="./vue.js"></script>
+    <script src="./axios.js"></script>
+    <script type="text/javascript">
+        //图书管理 - 图书列表展示功能
+        //注意事项： < a href = ""
+        //@click.prevent > 修改 < /a>
+        //事件绑定时， 可以只添加修饰符， 而不绑定事件函数 
+        Vue.directive('focus', {
+            inserted(el) {
+                el.focus();
+            }
+        })
+        Vue.filter('format', function(value, arg) {
+            function dateFormat(date, format) {
+                if (typeof date === "string") {
+                    var mts = date.match(/(\/Date\((\d+)\)\/)/);
+                    if (mts && mts.length >= 3) {
+                        date = parseInt(mts[2]);
+                    }
+                }
+                date = new Date(date);
+                if (!date || date.toUTCString() == "Invalid Date") {
+                    return "";
+                }
+                var map = {
+                    "M": date.getMonth() + 1, //月份 
+                    "d": date.getDate(), //日 
+                    "h": date.getHours(), //小时 
+                    "m": date.getMinutes(), //分 
+                    "s": date.getSeconds(), //秒 
+                    "q": Math.floor((date.getMonth() + 3) / 3), //季度 
+                    "S": date.getMilliseconds() //毫秒 
+                };
+                format = format.replace(/([yMdhmsqS])+/g, function(all, t) {
+                    var v = map[t];
+                    if (v !== undefined) {
+                        if (all.length > 1) {
+                            v = '0' + v;
+                            v = v.substr(v.length - 2);
+                        }
+                        return v;
+                    } else if (t === 'y') {
+                        return (date.getFullYear() + '').substr(4 - all.length);
+                    }
+                    return all;
+                });
+                return format;
+            }
+            return dateFormat(value, arg);
+        })
+
+        var vm = new Vue({
+            el: '#app',
+            data: {
+                id: '',
+                name: '',
+                date: '',
+                flag: false,
+                nameFlag: false,
+                a: true,
+                text: '',
+                books: []
+            },
+            methods: {
+                async Qbooks() {
+                    // 先后台请求数据 赋值给 this.books 数组中 渲染到页面中
+                    var res = await axios.get("/books");
+                    this.books = res.data;
+                },
+                async add() {
+                    if (this.flag) {
+                        var params = new URLSearchParams();
+                        params.append('name', this.name);
+                        var res = await axios.put('/books/' + id, params);
+                        if (res.status == 200) {
+                            this.Qbooks();
+                            this.a = true;
+                        }
+                        // this.books.some((item) => {
+                        //     if (item.id == this.id) {
+                        //         // 根据ID号 来判断 你修改的数据 重新 赋值
+                        //         item.name = this.name;
+                        //         // 着这个判断条件里面的 如果成功 return 出去
+                        //         return true;
+                        //     }
+                        // });
+                        // 当我修改之后 input 的 disabled 需要改成 false 
+                        this.flag = false;
+                    } else {
+                        //  动态添加数据
+                        var params = new URLSearchParams();
+                        params.append('name', this.name);
+                        // 获取用户输入的 name 发送到后台 添加数据
+                        var res = await axios.post('/books', params);
+                        if (res.status == 200) {
+                            this.Qbooks();
+                        }
+                    }
+                    // 当我们 修改 或添加之后 都需要把input 输入框里面的值 都清空
+                    this.id = '';
+                    this.name = '';
+                },
+                async update(id) {
+                    var res = await axios.get('/books/' + id);
+                    this.id = res.data.id;
+                    this.name = res.data.name;
+                    // 根据点击的时候传过来的 索引号 在 books 中查找对应的数据
+                    // var book = this.books[index];
+                    // 在input 输入框里面显示
+                    // this.id = book.id;
+                    // this.name = book.name;
+                    /* 因为ID 号是不可以更改的 所以我们需要 吧input 输入框 的 disabled 值改为true */
+                    this.flag = true;
+                    this.a = false;
+                },
+                async del(id) {
+                    // 根据 用点击 的元素 获取对应的 ID 值 向后台发送请求删除数据
+                    var res = await axios.delete('/books/' + id)
+                        // 根据 索引号 来删除对应的数据
+                    if (res.status == 200) {
+                        this.Qbooks();
+                    } else {
+                        alert('删除失败');
+                    }
+                    // this.books.splice(index, 1);
+                }
+            },
+            watch: {
+                // 随时件听用户输入的 name 值 如果跟已有的 name 值一样就把 提交按钮 禁止提交 
+                name(val) {
+                    // name 的意思是 需要跟你 监听的数据属性一样
+                    let b = this.books.some((item) => {
+                        if (item.name == val) {
+                            return true;
+                        }
+                    });
+                    if (val == '') {
+                        this.nameFlag = false;
+                        this.text = "";
+                        // console.log(this.text);
+                        return;
+                    }
+                    if (this.a) {
+                        if (b) {
+                            this.nameFlag = true;
+                            this.text = "您输入的书名已存在,请从新输入";
+                        } else {
+                            this.nameFlag = false;
+                            this.text = "您输入的用户名不存在，可以输入";
+                        }
+                    }
+
+
+                },
+                // id(val) {if
+                //     let flag = this.books.some((item) => {
+                //         if (item.id == val) {
+                //             return true;
+                //         }
+                //     });
+                //     if (flag) {
+                //         this.nameFlag = true;
+                //         this.text = "您输入的编号已存在,请从新输入";
+                //     } else {
+                //         this.nameFlag = false;
+                //         this.text = "您输入的编号不存在，可以输入";
+                //     }
+                // }
+            },
+            computed: {
+                msg() {
+                    // 根据 BOOKS 数据 的length 的长度来判断图书的数量 使用计算属性
+                    return this.books.length;
+                }
+            },
+            async mounted() {
+                axios.defaults.baseURL = "http://127.0.0.1:3000";
+                this.Qbooks();
+            }
+        });
+    </script>
+</body>
+
+</html>
